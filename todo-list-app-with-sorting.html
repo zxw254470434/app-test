@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办事项清单</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        }
+        input[type="date"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-left: none;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .sort-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .sort-button {
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .sort-button:hover {
+            background-color: #e9ecef;
+        }
+        .sort-button.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            transition: background-color 0.2s;
+        }
+        li:last-child {
+            border-bottom: none;
+        }
+        li.dragging {
+            opacity: 0.5;
+            background-color: #f1f1f1;
+        }
+        li:hover {
+            background-color: #f9f9f9;
+        }
+        .task-date {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        .task-content {
+            display: flex;
+            align-items: center;
+        }
+        .task-checkbox {
+            margin-right: 10px;
+        }
+        .completed {
+            text-decoration: line-through;
+            color: #95a5a6;
+        }
+        .empty-list {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 20px 0;
+        }
+        .drag-handle {
+            color: #bdc3c7;
+            margin-right: 10px;
+            cursor: move;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>待办事项清单</h1>
+        <div class="input-group">
+            <input type="text" id="taskInput" placeholder="添加新任务...">
+            <input type="date" id="dateInput">
+            <button onclick="addTask()">添加</button>
+        </div>
+        
+        <div class="sort-buttons">
+            <button id="customSortBtn" class="sort-button active" onclick="switchSortMode('custom')">自定义排序</button>
+            <button id="dateSortBtn" class="sort-button" onclick="switchSortMode('date')">按日期排序</button>
+        </div>
+        
+        <ul id="taskList"></ul>
+        <div id="emptyList" class="empty-list">没有待办事项</div>
+    </div>
+
+    <script>
+        // 设置日期输入框的默认值为今天
+        document.getElementById('dateInput').valueAsDate = new Date();
+        
+        // 初始化任务列表和排序模式
+        let tasks = [];
+        let sortMode = 'custom'; // 默认使用自定义排序
+        
+        // 从localStorage加载任务
+        function loadTasks() {
+            try {
+                const savedTasks = localStorage.getItem('todoTasks');
+                if (savedTasks) {
+                    tasks = JSON.parse(savedTasks);
+                }
+                
+                // 加载排序模式
+                const savedSortMode = localStorage.getItem('todoSortMode');
+                if (savedSortMode) {
+                    sortMode = savedSortMode;
+                    updateSortButtons();
+                }
+            } catch (error) {
+                console.error('无法从localStorage加载数据:', error);
+                tasks = [];
+            }
+        }
+        
+        // 保存任务到localStorage
+        function saveTasks() {
+            try {
+                localStorage.setItem('todoTasks', JSON.stringify(tasks));
+                localStorage.setItem('todoSortMode', sortMode);
+            } catch (error) {
+                console.error('无法保存数据到localStorage:', error);
+                alert('无法保存任务数据。如果您使用的是私密浏览模式，请切换到普通模式。');
+            }
+        }
+        
+        // 更新排序按钮状态
+        function updateSortButtons() {
+            document.getElementById('customSortBtn').classList.toggle('active', sortMode === 'custom');
+            document.getElementById('dateSortBtn').classList.toggle('active', sortMode === 'date');
+        }
+        
+        // 切换排序模式
+        function switchSortMode(mode) {
+            sortMode = mode;
+            updateSortButtons();
+            saveTasks();
+            renderTasks();
+        }
+        
+        // 页面加载时初始化
+        window.onload = function() {
+            loadTasks();
+            renderTasks();
+        };
+        
+        // 添加新任务
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const dateInput = document.getElementById('dateInput');
+            
+            const taskText = taskInput.value.trim();
+            const taskDate = dateInput.value;
+            
+            if (taskText === '') {
+                alert('请输入任务内容！');
+                return;
+            }
+            
+            const newTask = {
+                id: Date.now(),
+                text: taskText,
+                date: taskDate,
+                completed: false,
+                order: tasks.length // 添加排序字段
+            };
+            
+            tasks.push(newTask);
+            saveTasks();
+            renderTasks();
+            
+            // 清空输入框
+            taskInput.value = '';
+        }
+        
+        // 删除任务
+        function deleteTask(id) {
+            const taskIndex = tasks.findIndex(task => task.id === id);
+            if (taskIndex !== -1) {
+                tasks.splice(taskIndex, 1);
+                
+                // 更新剩余任务的顺序
+                tasks.forEach((task, index) => {
+                    task.order = index;
+                });
+                
+                saveTasks();
+                renderTasks();
+            }
+        }
+        
+        // 切换任务完成状态
+        function toggleTaskStatus(id) {
+            tasks = tasks.map(task => {
+                if (task.id === id) {
+                    return { ...task, completed: !task.completed };
+                }
+                return task;
+            });
+            saveTasks();
+            renderTasks();
+        }
+        
+        // 根据排序模式对任务进行排序
+        function sortTasks() {
+            if (sortMode === 'date') {
+                tasks.sort((a, b) => new Date(a.date) - new Date(b.date));
+            } else {
+                tasks.sort((a, b) => a.order - b.order);
+            }
+        }
+        
+        // 渲染任务列表
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            const emptyList = document.getElementById('emptyList');
+            
+            sortTasks();
+            
+            if (tasks.length === 0) {
+                taskList.innerHTML = '';
+                emptyList.style.display = 'block';
+                return;
+            }
+            
+            emptyList.style.display = 'none';
+            
+            taskList.innerHTML = tasks.map(task => {
+                const formattedDate = formatDate(task.date);
+                return `
+                    <li data-id="${task.id}" draggable="${sortMode === 'custom'}">
+                        <div class="task-content ${task.completed ? 'completed' : ''}">
+                            ${sortMode === 'custom' ? '<span class="drag-handle">☰</span>' : ''}
+                            <input type="checkbox" class="task-checkbox" 
+                                   ${task.completed ? 'checked' : ''} 
+                                   onchange="toggleTaskStatus(${task.id})">
+                            <span>${task.text}</span>
+                            <span class="task-date">${formattedDate}</span>
+                        </div>
+                        <button class="delete-btn" onclick="deleteTask(${task.id})">删除</button>
+                    </li>
+                `;
+            }).join('');
+            
+            // 添加拖放功能（仅在自定义排序模式下）
+            if (sortMode === 'custom') {
+                setupDragAndDrop();
+            }
+        }
+        
+        // 设置拖放功能
+        function setupDragAndDrop() {
+            const taskItems = document.querySelectorAll('#taskList li');
+            
+            taskItems.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+        
+        let draggedItem = null;
+        
+        function handleDragStart(e) {
+            draggedItem = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+        
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedItem !== this) {
+                // 获取拖拽的任务ID和目标任务ID
+                const draggedId = parseInt(draggedItem.getAttribute('data-id'));
+                const targetId = parseInt(this.getAttribute('data-id'));
+                
+                // 查找任务在数组中的位置
+                const draggedIndex = tasks.findIndex(task => task.id === draggedId);
+                const targetIndex = tasks.findIndex(task => task.id === targetId);
+                
+                if (draggedIndex !== -1 && targetIndex !== -1) {
+                    // 从数组中移除拖拽的任务
+                    const [draggedTask] = tasks.splice(draggedIndex, 1);
+                    
+                    // 在目标位置插入任务
+                    tasks.splice(targetIndex, 0, draggedTask);
+                    
+                    // 更新所有任务的顺序
+                    tasks.forEach((task, index) => {
+                        task.order = index;
+                    });
+                    
+                    saveTasks();
+                    renderTasks();
+                }
+            }
+            
+            return false;
+        }
+        
+        function handleDragEnd() {
+            this.classList.remove('dragging');
+        }
+        
+        // 格式化日期为更友好的形式
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('zh-CN', options);
+        }
+    </script>
+</body>
+</html>
